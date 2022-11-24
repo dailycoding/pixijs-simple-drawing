@@ -1,25 +1,15 @@
-import { Graphics, Point } from "pixi.js";
+import { Point } from "pixi.js";
+import { IGeometry, IPoint } from "./interface";
+import VertexGroup from "./vertexGroup";
 
-class Vertex {
-    graphics: Graphics;
-    index: number;
-    position: Point;
+class Vertex extends Point implements IPoint {
+    geometry: IGeometry;
+    connectedGeometry: VertexGroup | null;
 
-    constructor(graphics: Graphics, vertexIndex: number, position: Point) {
-        this.graphics = graphics;
-        this.index = vertexIndex;
-        this.position = new Point(position.x, position.y);
-    }
-
-    get x() {
-        return this.position.x;
-    }
-    get y() {
-        return this.position.y;
-    }
-
-    setPosition(position: Point) {
-        this.position.set(position.x, position.y);
+    constructor(position: Point, geometry: IGeometry) {
+        super(position.x, position.y);
+        this.geometry = geometry;
+        this.connectedGeometry = null;
     }
 }
 

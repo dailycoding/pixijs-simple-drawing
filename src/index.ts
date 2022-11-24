@@ -1,21 +1,19 @@
 import { Application, Container, Graphics, Point } from "pixi.js";
-import { Line } from "./graphics";
+import { Geometry, Polygon, VertexGroup } from "./graphics";
 
-let vw = window.innerWidth,
-  vh = window.innerHeight;
-let view = document.querySelector("#pixi-content") as HTMLCanvasElement;
+const view = document.querySelector("#pixi-content") as HTMLCanvasElement;
 
 const app = new Application({
   view: view,
-  width: vw,
-  height: vh,
+  width: window.innerWidth,
+  height: window.innerHeight,
   resizeTo: window,
 });
 
-const geometries: Line[] = [];
 let isMouseButtonDown = false;
 let initPosition: Point | null = null;
-let currentGeometries: Line[] = [];
+let currentGeometry: Geometry | null = null;
+let currentVertexGroup: VertexGroup | null = null;
 
 const container = new Container();
 const graphics = new Graphics();
@@ -26,19 +24,15 @@ window.addEventListener("resize", onResize);
 view.addEventListener("mousemove", onMouseMove);
 view.addEventListener("mousedown", onMouseDown);
 view.addEventListener("mouseup", onMouseUp);
+view.addEventListener("dblclick", onMouseDblClick);
 
 function update() {
   graphics.clear().lineStyle(2, 0x0000ff);
 }
 
 function onResize() {
-  vw = window.innerWidth;
-  vh = window.innerHeight;
-  app.renderer.resize(vw, vh);
+  app.renderer.resize(window.innerWidth, window.innerHeight);
 }
-
-// let annoRef: Container | null = null;
-// let sprite: Line | null = null;
 
 function getMousePos(event: MouseEvent) {
   const pos = new Point(0, 0);
@@ -50,53 +44,91 @@ function getMousePos(event: MouseEvent) {
   return pos;
 }
 
-function getPickedGeometries(position: Point) {
-  let pickedGeometries = [];
-  for (let geometry of geometries) {
-    let vertexId = geometry.getVertexAt(position);
-    if (vertexId < 0) continue;
+function getPickedGeometry(position: Point) {
+  let selectedVertexGroup: VertexGroup | null = null;
+  for (let child of container.children) {
+    let geometry = child as Geometry;
+    if (!geometry) continue;
 
-    geometry.startDragging(vertexId);
-    pickedGeometries.push(geometry);
+    let vertices = geometry.getVerticesAt(position);
+    for (let vertex of vertices) {
+      if (!selectedVertexGroup) {
+        selectedVertexGroup = vertex.connectedGeometry as VertexGroup;
+        if (selectedVertexGroup) {
+          continue
+        } else {
+          selectedVertexGroup = new VertexGroup();
+        }
+      }
+      selectedVertexGroup.addVertex(vertex);
+    }
   }
 
-  return pickedGeometries;
+  return selectedVertexGroup;
 }
 
 function onMouseDown(e: MouseEvent) {
+  if (isMouseButtonDown) return;
+
   const clickPos = getMousePos(e);
 
   initPosition = clickPos;
 
-  currentGeometries = getPickedGeometries(clickPos);
-  if (!currentGeometries.length) {
-    let geometry = new Line(initPosition, initPosition);
-    geometry.startDragging(1);
-    geometries.push(geometry);
-    container.addChild(geometry);
-
-    currentGeometries = [geometry];
+  if (currentGeometry) {
+    currentGeometry.addVertex(initPosition);
   }
+
+  currentVertexGroup = getPickedGeometry(clickPos);
+  if (currentVertexGroup) {
+    if (!currentGeometry) {
+      currentGeometry = currentVertexGroup.vertices[0].geometry as Geometry;
+    }
+  }
+
+  if (!currentGeometry) {
+    currentGeometry = new Polygon([initPosition, initPosition]);
+    container.addChild(currentGeometry);
+    if (!currentVertexGroup) {
+      currentVertexGroup = new VertexGroup();
+      let selectedVertex = currentGeometry.vertices[currentGeometry.vertices.length - 1];
+      currentVertexGroup.addVertex(selectedVertex);
+    }
+  }
+
   isMouseButtonDown = true;
 
   return true;
 }
 
 function onMouseMove(e: MouseEvent) {
-  if (!isMouseButtonDown) {
-    return;
-  }
-
-  const currentPosition = getMousePos(e);
-  for (let geometry of currentGeometries) {
-    geometry.setCurrentVertexPos(currentPosition);
+  if (currentVertexGroup) {
+    const currentPosition = getMousePos(e);
+    currentVertexGroup.setPosition(currentPosition);
   }
 }
 
-function onMouseUp(_e: MouseEvent) {
-  for (let geometry of currentGeometries) {
-    geometry.endDragging();
+function onMouseUp(e: MouseEvent) {
+  if (currentVertexGroup) {
+    const currentPosition = getMousePos(e);
+    currentVertexGroup.setPosition(currentPosition);
+    currentVertexGroup = null;
   }
-  currentGeometries = [];
-  isMouseButtonDown = false;
+
+  let currentPolygon = currentGeometry as Polygon;
+  if (currentPolygon && currentPolygon.isClosed) {
+    currentGeometry = null;
+  }
+
+  if (isMouseButtonDown) {
+    isMouseButtonDown = false;
+  }
+}
+
+function onMouseDblClick() {
+  let currentPolygon = currentGeometry as Polygon;
+  if (currentPolygon && !currentPolygon.isClosed) {
+    if (currentPolygon.close()) {
+      currentGeometry = null;
+    }
+  }
 }

@@ -1,3 +1,5 @@
-import Line from "./line";
+import Geometry from "./geometry";
+import Polygon from "./polygon";
+import VertexGroup from "./vertexGroup";
 
-export { Line };
+export { Geometry, Polygon, VertexGroup };
