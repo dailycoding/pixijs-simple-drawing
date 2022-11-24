@@ -15,7 +15,7 @@ const app = new Application({
 const geometries: Line[] = [];
 let isMouseButtonDown = false;
 let initPosition: Point | null = null;
-let currentGeometry: Line | null = null;
+let currentGeometries: Line[] = [];
 
 const container = new Container();
 const graphics = new Graphics();
@@ -50,17 +50,17 @@ function getMousePos(event: MouseEvent) {
   return pos;
 }
 
-function pickGeometry(position: Point) {
+function getPickedGeometries(position: Point) {
+  let pickedGeometries = [];
   for (let geometry of geometries) {
     let vertexId = geometry.getVertexAt(position);
     if (vertexId < 0) continue;
 
     geometry.startDragging(vertexId);
-    console.log(`Picked ${geometry.name}`);
-
-    return geometry;
+    pickedGeometries.push(geometry);
   }
-  return null;
+
+  return pickedGeometries;
 }
 
 function onMouseDown(e: MouseEvent) {
@@ -68,12 +68,14 @@ function onMouseDown(e: MouseEvent) {
 
   initPosition = clickPos;
 
-  currentGeometry = pickGeometry(clickPos);
-  if (!currentGeometry) {
-    currentGeometry = new Line(initPosition, initPosition);
-    currentGeometry.startDragging(1);
-    geometries.push(currentGeometry);
-    container.addChild(currentGeometry);
+  currentGeometries = getPickedGeometries(clickPos);
+  if (!currentGeometries.length) {
+    let geometry = new Line(initPosition, initPosition);
+    geometry.startDragging(1);
+    geometries.push(geometry);
+    container.addChild(geometry);
+
+    currentGeometries = [geometry];
   }
   isMouseButtonDown = true;
 
@@ -86,13 +88,15 @@ function onMouseMove(e: MouseEvent) {
   }
 
   const currentPosition = getMousePos(e);
-  currentGeometry?.setCurrentVertexPos(currentPosition);
+  for (let geometry of currentGeometries) {
+    geometry.setCurrentVertexPos(currentPosition);
+  }
 }
 
 function onMouseUp(_e: MouseEvent) {
-  if (currentGeometry) {
-    currentGeometry.endDragging();
-    currentGeometry = null;
+  for (let geometry of currentGeometries) {
+    geometry.endDragging();
   }
+  currentGeometries = [];
   isMouseButtonDown = false;
 }
