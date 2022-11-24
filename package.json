@@ -1,5 +1,17 @@
 {
-  "license": "",
+  "name": "pixijs-simple-drawing",
+  "version": "0.1.0",
+  "author": "Kevin Gilliard",
+  "keywords": [
+    "pixi.js",
+    "canvas",
+    "webgl",
+    "2d",
+    "polygon",
+    "vector",
+    "graphics"
+  ],
+  "license": "MIT",
   "scripts": {
     "start": "webpack serve --mode=development",
     "build": "run-s clean build-only",

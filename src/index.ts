@@ -3,36 +3,24 @@ import { Geometry, Polygon, VertexGroup } from "./graphics";
 
 const view = document.querySelector("#pixi-content") as HTMLCanvasElement;
 
+// Initialize PixiJS application
 const app = new Application({
   view: view,
   width: window.innerWidth,
   height: window.innerHeight,
-  resizeTo: window,
 });
-
-let isMouseButtonDown = false;
-let initPosition: Point | null = null;
-let currentGeometry: Geometry | null = null;
-let currentVertexGroup: VertexGroup | null = null;
 
 const container = new Container();
 const graphics = new Graphics();
 app.stage.addChild(container, graphics);
-app.ticker.add(update);
-window.addEventListener("resize", onResize);
+app.ticker.add(() => {
+  graphics.clear();
+});
 
-view.addEventListener("mousemove", onMouseMove);
-view.addEventListener("mousedown", onMouseDown);
-view.addEventListener("mouseup", onMouseUp);
-view.addEventListener("dblclick", onMouseDblClick);
-
-function update() {
-  graphics.clear().lineStyle(2, 0x0000ff);
-}
-
-function onResize() {
+// Make canvas to full-sized
+window.addEventListener("resize", () => {
   app.renderer.resize(window.innerWidth, window.innerHeight);
-}
+});
 
 function getMousePos(event: MouseEvent) {
   const pos = new Point(0, 0);
@@ -44,37 +32,38 @@ function getMousePos(event: MouseEvent) {
   return pos;
 }
 
+/**
+ * Find geometry picked with mouse position
+ */
 function getPickedGeometry(position: Point, single: boolean = false) {
   let selectedVertexGroup: VertexGroup | null = null;
+
   for (let child of container.children) {
     let geometry = child as Geometry;
     if (!geometry) continue;
 
-    let vertices = geometry.getVerticesAt(position);
-    for (let vertex of vertices) {
+    let vertex = geometry.getVertexAt(position);
+    if (!vertex) continue;
+
+    if (!selectedVertexGroup) {
+      // If there's a connected VertexGroup for picked vertex, use it
+      // Otherwise, create new one
+      selectedVertexGroup = vertex.connectedGeometry as VertexGroup;
       if (!selectedVertexGroup) {
-        selectedVertexGroup = vertex.connectedGeometry as VertexGroup;
-        if (selectedVertexGroup) {
-          continue;
-        } else {
-          selectedVertexGroup = new VertexGroup();
-        }
+        selectedVertexGroup = new VertexGroup();
       }
-      selectedVertexGroup.addVertex(vertex);
     }
 
-    if (!vertices.length) continue;
+    // Append vertex to vertex group
+    selectedVertexGroup.addVertex(vertex);
 
-    if (single && selectedVertexGroup) {
-      if (selectedVertexGroup.vertices.length != vertices.length) {
-        // Create new vertex group with selected geometry only
-        let oldVertexGroup = selectedVertexGroup;
-        selectedVertexGroup = new VertexGroup();
-        for (let vertex of vertices) {
-          oldVertexGroup.remove(vertex)
-          selectedVertexGroup.addVertex(vertex);
-        }
-      }
+    if (single && selectedVertexGroup.vertices.length > 1) {
+      // Create new vertex group with selected geometry only
+      selectedVertexGroup.remove(vertex)
+
+      selectedVertexGroup = new VertexGroup();
+      selectedVertexGroup.addVertex(vertex);
+
       break;
     }
   }
@@ -82,34 +71,53 @@ function getPickedGeometry(position: Point, single: boolean = false) {
   return selectedVertexGroup;
 }
 
+/**
+ * Start drawing/editing geometries
+ */
+
+let isMouseButtonDown = false;
+let initPosition: Point | null = null;
+let currentGeometry: Geometry | null = null;
+let currentVertexGroup: VertexGroup | null = null;
+
 function onMouseDown(e: MouseEvent) {
   if (isMouseButtonDown) return;
 
   const clickPos = getMousePos(e);
-
   initPosition = clickPos;
 
+  // If user is drawing new Geometry, add new vertex
   if (currentGeometry) {
     currentGeometry.addVertex(initPosition);
   }
 
-  let selectSingleGeometry = e.shiftKey;
-  currentVertexGroup = getPickedGeometry(clickPos, selectSingleGeometry);
-  if (currentVertexGroup) {
-    if (!currentGeometry) {
-      currentGeometry = currentVertexGroup.vertices[0].geometry as Geometry;
+  // Get point (group) to move
+  if (currentGeometry && !currentGeometry.isCompleted()) {
+
+  } else {
+    let selectSingleGeometry = e.shiftKey;
+    currentVertexGroup = getPickedGeometry(clickPos, selectSingleGeometry);
+
+    // Choose selected geometry if there is pickable geometry
+    // Otherwise, create new geometry
+    if (currentVertexGroup) {
+      if (!currentGeometry) {
+        currentGeometry = currentVertexGroup.vertices[0].geometry as Geometry;
+      }
+    } else {
+      // Add new geometry if necessary
+      if (!currentGeometry) {
+        currentGeometry = new Polygon([initPosition, initPosition]);
+        container.addChild(currentGeometry);
+      }
     }
   }
 
-  if (!currentGeometry) {
-    currentGeometry = new Polygon([initPosition, initPosition]);
-    container.addChild(currentGeometry);
-    if (!currentVertexGroup) {
-      currentVertexGroup = new VertexGroup();
-      let selectedVertex =
-        currentGeometry.vertices[currentGeometry.vertices.length - 1];
-      currentVertexGroup.addVertex(selectedVertex);
-    }
+  // Create new vertex group if necessary
+  if (!currentVertexGroup) {
+    currentVertexGroup = new VertexGroup();
+    const selectedVertex = currentGeometry.vertices.slice(-1)[0];
+    currentVertexGroup.addVertex(selectedVertex);
   }
 
   isMouseButtonDown = true;
@@ -118,6 +126,7 @@ function onMouseDown(e: MouseEvent) {
 }
 
 function onMouseMove(e: MouseEvent) {
+  // Update position of picked vertices
   if (currentVertexGroup) {
     const currentPosition = getMousePos(e);
     currentVertexGroup.setPosition(currentPosition);
@@ -125,12 +134,14 @@ function onMouseMove(e: MouseEvent) {
 }
 
 function onMouseUp(e: MouseEvent) {
+  // Update position of picked vertices, and unselect
   if (currentVertexGroup) {
     const currentPosition = getMousePos(e);
     currentVertexGroup.setPosition(currentPosition);
     currentVertexGroup = null;
   }
 
+  // Deselect current geometry if editing was finished
   let currentPolygon = currentGeometry as Polygon;
   if (currentPolygon && currentPolygon.isClosed) {
     currentGeometry = null;
@@ -142,6 +153,7 @@ function onMouseUp(e: MouseEvent) {
 }
 
 function onMouseDblClick() {
+  // Close path for polygon
   let currentPolygon = currentGeometry as Polygon;
   if (currentPolygon && !currentPolygon.isClosed) {
     if (currentPolygon.close()) {
@@ -149,3 +161,9 @@ function onMouseDblClick() {
     }
   }
 }
+
+// Add mouse event listeners
+view.addEventListener("mousemove", onMouseMove);
+view.addEventListener("mousedown", onMouseDown);
+view.addEventListener("mouseup", onMouseUp);
+view.addEventListener("dblclick", onMouseDblClick);

@@ -2,6 +2,7 @@ import { Point } from "pixi.js";
 import Geometry from "./geometry";
 
 class Polygon extends Geometry {
+  isClosed: boolean;
   isDragging: boolean;
   isFocused: boolean;
   lineWidth: number;
@@ -19,6 +20,7 @@ class Polygon extends Geometry {
     super(vertices);
 
     this.name = `polygon_${Math.random().toString().substring(2)}`;
+    this.isClosed = false;
     this.isDragging = false;
     this.isFocused = false;
 
@@ -31,12 +33,18 @@ class Polygon extends Geometry {
   }
 
   override update() {
+    // Set line style
     this.clear().lineStyle(this.lineWidth, this.lineColor);
+
     if (this.isClosed) {
+      const vertices = [...this.vertices, this.vertices[0]];
+
+      // Draw polygon
       this.beginFill(this.fillColor, this.alpha)
-        .drawPolygon(this.vertices)
+        .drawPolygon(vertices)
         .endFill();
     } else {
+      // Draw Polyline
       this.moveTo(this.vertices[0].x, this.vertices[0].y);
       for (let i = 1; i < this.vertices.length; i++) {
         this.lineTo(this.vertices[i].x, this.vertices[i].y);
@@ -44,22 +52,19 @@ class Polygon extends Geometry {
     }
   }
 
-  get isClosed() {
-    return (
-      this.vertices.length >= 3 &&
-      this.vertices[0].equals(this.vertices[this.vertices.length - 1])
-    );
-  }
-
   close() {
-    if (this.vertices.length <= 1) {
+    if (this.vertices.length < 3) {
       return false;
-    } else if (this.vertices[0].equals(this.vertices[this.vertices.length - 1])) {
-      return this.vertices.length > 2;
     }
 
-    this.addVertex(this.vertices[0]);
+    this.isClosed = true;
+    this.update();
+
     return true;
+  }
+
+  override isCompleted(): boolean {
+    return this.isClosed;
   }
 }
 
