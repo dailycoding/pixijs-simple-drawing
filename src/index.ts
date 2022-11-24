@@ -44,7 +44,7 @@ function getMousePos(event: MouseEvent) {
   return pos;
 }
 
-function getPickedGeometry(position: Point) {
+function getPickedGeometry(position: Point, single: boolean = false) {
   let selectedVertexGroup: VertexGroup | null = null;
   for (let child of container.children) {
     let geometry = child as Geometry;
@@ -55,12 +55,27 @@ function getPickedGeometry(position: Point) {
       if (!selectedVertexGroup) {
         selectedVertexGroup = vertex.connectedGeometry as VertexGroup;
         if (selectedVertexGroup) {
-          continue
+          continue;
         } else {
           selectedVertexGroup = new VertexGroup();
         }
       }
       selectedVertexGroup.addVertex(vertex);
+    }
+
+    if (!vertices.length) continue;
+
+    if (single && selectedVertexGroup) {
+      if (selectedVertexGroup.vertices.length != vertices.length) {
+        // Create new vertex group with selected geometry only
+        let oldVertexGroup = selectedVertexGroup;
+        selectedVertexGroup = new VertexGroup();
+        for (let vertex of vertices) {
+          oldVertexGroup.remove(vertex)
+          selectedVertexGroup.addVertex(vertex);
+        }
+      }
+      break;
     }
   }
 
@@ -78,7 +93,8 @@ function onMouseDown(e: MouseEvent) {
     currentGeometry.addVertex(initPosition);
   }
 
-  currentVertexGroup = getPickedGeometry(clickPos);
+  let selectSingleGeometry = e.shiftKey;
+  currentVertexGroup = getPickedGeometry(clickPos, selectSingleGeometry);
   if (currentVertexGroup) {
     if (!currentGeometry) {
       currentGeometry = currentVertexGroup.vertices[0].geometry as Geometry;
@@ -90,7 +106,8 @@ function onMouseDown(e: MouseEvent) {
     container.addChild(currentGeometry);
     if (!currentVertexGroup) {
       currentVertexGroup = new VertexGroup();
-      let selectedVertex = currentGeometry.vertices[currentGeometry.vertices.length - 1];
+      let selectedVertex =
+        currentGeometry.vertices[currentGeometry.vertices.length - 1];
       currentVertexGroup.addVertex(selectedVertex);
     }
   }
