@@ -8,6 +8,7 @@ class Line extends Graphics {
   lineWidth: number;
   lineColor: number;
   isDragging: boolean;
+  currentVertex: Vertex | null;
   isFocused: boolean;
 
   constructor(a: Point, b: Point, lineSize = 2, lineColor = 0xf00000) {
@@ -16,6 +17,7 @@ class Line extends Graphics {
     this.name = `line_${Math.random().toString().substring(2)}`;
     this.isDragging = false;
     this.isFocused = false;
+    this.currentVertex = null;
 
     this.vertices = [a, b].map((pos, index) => new Vertex(this, index, pos));
 
@@ -23,20 +25,6 @@ class Line extends Graphics {
     this.lineColor = lineColor || 0xf00000;
     this.interactive = true;
     this.buttonMode = true;
-
-    this
-      .on("pointerDown", this.onDragStart)
-      .on("pointerUp", this.onDragEnd)
-      // .on("mousedown", this.onDragStart)
-      // .on("touchstart", this.onDragStart)
-      // // events for drag end
-      // .on("mouseup", this.onDragEnd)
-      // .on("mouseupoutside", this.onDragEnd)
-      // .on("touchend", this.onDragEnd)
-      // .on("touchendoutside", this.onDragEnd)
-      // events for drag move
-      .on("mousemove", this.onDragMove)
-      .on("touchmove", this.onDragMove);
 
     this.draw();
   }
@@ -58,7 +46,7 @@ class Line extends Graphics {
     this.lineTo(this.vertices[1].x, this.vertices[1].y);
   }
 
-  canDrag(pos: Point) {
+  getVertexAt(pos: Point) {
     for (let i = 0; i < this.vertices.length; i++) {
       if (isCloseAt(pos, this.vertices[i].position)) {
         return i;
@@ -67,19 +55,21 @@ class Line extends Graphics {
     return -1;
   }
 
-  onDragStart() {
-    console.log(`onDragStart: ${this.name}`);
-    return;
+  startDragging(vertId: number) {
+    this.currentVertex = this.vertices[vertId];
+    this.isDragging = true;
   }
 
-  onDragMove() {
-    // if (!this.isDragging) return;
-
-    // console.log(`onDragMove: ${this.name}`);
+  setCurrentVertexPos(position: Point) {
+    if (this.currentVertex) {
+      this.currentVertex.setPosition(position);
+      this.draw();
+    }
   }
 
-  onDragEnd() {
-    return;
+  endDragging() {
+    this.currentVertex = null;
+    this.isDragging = false;
   }
 }
 

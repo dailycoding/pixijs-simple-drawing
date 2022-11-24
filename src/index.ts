@@ -50,20 +50,31 @@ function getMousePos(event: MouseEvent) {
   return pos;
 }
 
+function pickGeometry(position: Point) {
+  for (let geometry of geometries) {
+    let vertexId = geometry.getVertexAt(position);
+    if (vertexId < 0) continue;
+
+    geometry.startDragging(vertexId);
+    console.log(`Picked ${geometry.name}`);
+
+    return geometry;
+  }
+  return null;
+}
+
 function onMouseDown(e: MouseEvent) {
   const clickPos = getMousePos(e);
 
-  let obj = app.renderer.plugins.interaction.hitTest(clickPos);
-  if (obj) {
-    return;
-  }
-
   initPosition = clickPos;
 
-  currentGeometry = new Line(initPosition, initPosition);
-  geometries.push(currentGeometry);
-  container.addChild(currentGeometry);
-
+  currentGeometry = pickGeometry(clickPos);
+  if (!currentGeometry) {
+    currentGeometry = new Line(initPosition, initPosition);
+    currentGeometry.startDragging(1);
+    geometries.push(currentGeometry);
+    container.addChild(currentGeometry);
+  }
   isMouseButtonDown = true;
 
   return true;
@@ -74,16 +85,14 @@ function onMouseMove(e: MouseEvent) {
     return;
   }
 
-  // clearSpriteRef(annoRef)
-  if (initPosition == null) return;
-
-  if (!currentGeometry) return;
-
   const currentPosition = getMousePos(e);
-
-  currentGeometry.updatePoints(initPosition, currentPosition);
+  currentGeometry?.setCurrentVertexPos(currentPosition);
 }
 
 function onMouseUp(_e: MouseEvent) {
+  if (currentGeometry) {
+    currentGeometry.endDragging();
+    currentGeometry = null;
+  }
   isMouseButtonDown = false;
 }
